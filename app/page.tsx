@@ -28,6 +28,7 @@ type Day = {
   episodes: Episode[];
   shows: {
     id: string;
+    appleId: string;
     title: string;
     status: string;
     error?: string;
@@ -298,6 +299,18 @@ export default function Home() {
       }
       const d = await fetchTodayFromApple(configured);
       if (d.date !== today() || !Array.isArray(d.episodes)) throw Error();
+      const titled = configured.map((item) => {
+        const fresh = d.shows.find((show) => show.appleId === item.appleId);
+        return fresh?.title && fresh.title !== item.title
+          ? { ...item, title: fresh.title }
+          : item;
+      });
+      setConfiguredShows(titled);
+      try {
+        localStorage.setItem(SHOWS_KEY, JSON.stringify(titled));
+      } catch {
+        setStorageWarning(true);
+      }
       audio.current?.pause();
       dataRef.current = d;
       setData(d);
@@ -754,7 +767,7 @@ export default function Home() {
                   更新 · {time(ep.duration)}
                 </p>
                 <a href={ep.url} target="_blank" rel="noreferrer">
-                  在小宇宙查看 <ArrowUpRight size={13} />
+                  在 Apple Podcasts 打开 <ArrowUpRight size={13} />
                 </a>
               </div>
             ))}
@@ -830,7 +843,9 @@ export default function Home() {
         onError={() => {
           if (dataRef.current?.episodes.length) {
             setPlaying(false);
-            setError('音频暂时无法播放，请点播放重试，或在小宇宙查看本期。');
+            setError(
+              '音频暂时无法播放，请点播放重试，或在 Apple Podcasts 查看本期。',
+            );
           }
         }}
       />
