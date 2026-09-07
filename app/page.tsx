@@ -43,6 +43,102 @@ const today = () =>
   }).format(new Date());
 const time = (s: number) =>
   `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const APPLE_SHOWS = [
+  { id: '67891a429407dcd1bfbfcfcb', appleId: '1794422481', title: '资讯早7点' },
+  {
+    id: '60de7c003dd577b40d5a40f3',
+    appleId: '1573189055',
+    title: '声动早咖啡',
+  },
+];
+
+async function fetchTodayFromApple(): Promise<Day> {
+  const date = today();
+  const shows = await Promise.all(
+    APPLE_SHOWS.map(async (show) => {
+      try {
+        const response = await fetch(
+          `https://itunes.apple.com/lookup?id=${show.appleId}&entity=podcastEpisode&limit=10&country=cn`,
+          { signal: AbortSignal.timeout(18000) },
+        );
+        if (!response.ok) throw new Error(`目录返回 ${response.status}`);
+        const payload: { results?: Record<string, unknown>[] } =
+          await response.json();
+        if (!Array.isArray(payload.results))
+          throw new Error('目录数据格式异常');
+        const seen = new Set<string>();
+        const episodes: Episode[] = payload.results
+          .filter(
+            (entry: Record<string, unknown>) =>
+              entry.wrapperType === 'podcastEpisode',
+          )
+          .filter(
+            (entry: Record<string, unknown>) =>
+              todayFor(entry.releaseDate) === date,
+          )
+          .map((entry: Record<string, unknown>) => {
+            if (
+              typeof entry.episodeUrl !== 'string' ||
+              !entry.episodeUrl.startsWith('https://') ||
+              typeof entry.trackName !== 'string' ||
+              typeof entry.trackId !== 'number' ||
+              typeof entry.trackTimeMillis !== 'number' ||
+              entry.trackTimeMillis <= 0
+            )
+              throw new Error('单集信息不完整');
+            return {
+              id: String(entry.trackId),
+              title: entry.trackName,
+              showId: show.id,
+              showTitle: show.title,
+              publishedAt: String(entry.releaseDate),
+              duration: Math.round(entry.trackTimeMillis / 1000),
+              audio: entry.episodeUrl,
+              url:
+                typeof entry.trackViewUrl === 'string'
+                  ? entry.trackViewUrl
+                  : `https://podcasts.apple.com/cn/podcast/id${show.appleId}`,
+            };
+          })
+          .filter((episode: Episode) => {
+            if (seen.has(episode.id)) return false;
+            seen.add(episode.id);
+            return true;
+          })
+          .sort(
+            (a: Episode, b: Episode) =>
+              Date.parse(a.publishedAt) - Date.parse(b.publishedAt),
+          );
+        return {
+          ...show,
+          status: episodes.length ? 'ready' : 'empty',
+          episodes,
+        };
+      } catch {
+        return {
+          ...show,
+          status: 'error',
+          episodes: [],
+          error: '暂时无法获取，稍后刷新重试',
+        };
+      }
+    }),
+  );
+  return { date, shows, episodes: shows.flatMap((show) => show.episodes) };
+}
+
+function todayFor(value: unknown) {
+  const date = new Date(typeof value === 'string' ? value : '');
+  return Number.isNaN(date.getTime())
+    ? ''
+    : new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(date);
+}
+
 export default function Home() {
   const audio = useRef<HTMLAudioElement>(null);
   const dataRef = useRef<Day | null>(null);
@@ -126,12 +222,7 @@ export default function Home() {
     setLoading(true);
     setError('');
     try {
-      const r = await fetch('/api/today', {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(18000),
-      });
-      if (!r.ok) throw Error();
-      const d: Day = await r.json();
+      const d = await fetchTodayFromApple();
       if (d.date !== today() || !Array.isArray(d.episodes)) throw Error();
       audio.current?.pause();
       dataRef.current = d;
