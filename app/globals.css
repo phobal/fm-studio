@@ -252,6 +252,48 @@ details {
   color: #526974;
   line-height: 1.9;
 }
+.show-settings {
+  border: 1px solid #cbd7dc;
+  border-radius: 16px;
+  padding: 15px 16px;
+}
+.show-settings summary {
+  font-weight: 700;
+  color: #203f4b;
+}
+.show-add {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+.show-add input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #b7c8ce;
+  border-radius: 9px;
+  padding: 9px 10px;
+  font: inherit;
+  color: #19333e;
+}
+.show-config {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-top: 1px solid #d9e2e5;
+  padding: 8px 0;
+}
+.show-config span {
+  flex: 1;
+  color: #24434e;
+}
+.show-config small {
+  color: #71838b;
+  font-size: 11px;
+}
+.show-config .text-button {
+  min-height: 34px;
+  padding: 0 6px;
+}
 summary {
   cursor: pointer;
   min-height: 44px;

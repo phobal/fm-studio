@@ -1,3 +1,4 @@
+/* oxlint-disable react(react-compiler) */
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -34,6 +35,7 @@ type Day = {
   }[];
 };
 const KEY = 'morning-radio-progress-v1';
+const SHOWS_KEY = 'morning-radio-shows-v1';
 const today = () =>
   new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Shanghai',
@@ -43,7 +45,7 @@ const today = () =>
   }).format(new Date());
 const time = (s: number) =>
   `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-const APPLE_SHOWS = [
+const DEFAULT_SHOWS = [
   { id: '67891a429407dcd1bfbfcfcb', appleId: '1794422481', title: '资讯早7点' },
   {
     id: '60de7c003dd577b40d5a40f3',
@@ -52,77 +54,91 @@ const APPLE_SHOWS = [
   },
 ];
 
-async function fetchTodayFromApple(): Promise<Day> {
+type ConfiguredShow = {
+  id: string;
+  appleId: string;
+  title: string;
+  enabled: boolean;
+};
+
+async function fetchTodayFromApple(configured: ConfiguredShow[]): Promise<Day> {
   const date = today();
   const shows = await Promise.all(
-    APPLE_SHOWS.map(async (show) => {
-      try {
-        const response = await fetch(
-          `https://itunes.apple.com/lookup?id=${show.appleId}&entity=podcastEpisode&limit=10&country=cn`,
-          { signal: AbortSignal.timeout(18000) },
-        );
-        if (!response.ok) throw new Error(`目录返回 ${response.status}`);
-        const payload: { results?: Record<string, unknown>[] } =
-          await response.json();
-        if (!Array.isArray(payload.results))
-          throw new Error('目录数据格式异常');
-        const seen = new Set<string>();
-        const episodes: Episode[] = payload.results
-          .filter(
-            (entry: Record<string, unknown>) =>
-              entry.wrapperType === 'podcastEpisode',
-          )
-          .filter(
-            (entry: Record<string, unknown>) =>
-              todayFor(entry.releaseDate) === date,
-          )
-          .map((entry: Record<string, unknown>) => {
-            if (
-              typeof entry.episodeUrl !== 'string' ||
-              !entry.episodeUrl.startsWith('https://') ||
-              typeof entry.trackName !== 'string' ||
-              typeof entry.trackId !== 'number' ||
-              typeof entry.trackTimeMillis !== 'number' ||
-              entry.trackTimeMillis <= 0
-            )
-              throw new Error('单集信息不完整');
-            return {
-              id: String(entry.trackId),
-              title: entry.trackName,
-              showId: show.id,
-              showTitle: show.title,
-              publishedAt: String(entry.releaseDate),
-              duration: Math.round(entry.trackTimeMillis / 1000),
-              audio: entry.episodeUrl,
-              url:
-                typeof entry.trackViewUrl === 'string'
-                  ? entry.trackViewUrl
-                  : `https://podcasts.apple.com/cn/podcast/id${show.appleId}`,
-            };
-          })
-          .filter((episode: Episode) => {
-            if (seen.has(episode.id)) return false;
-            seen.add(episode.id);
-            return true;
-          })
-          .sort(
-            (a: Episode, b: Episode) =>
-              Date.parse(a.publishedAt) - Date.parse(b.publishedAt),
+    configured
+      .filter((show) => show.enabled)
+      .map(async (show) => {
+        try {
+          const response = await fetch(
+            `https://itunes.apple.com/lookup?id=${show.appleId}&entity=podcastEpisode&limit=10&country=cn`,
+            { signal: AbortSignal.timeout(18000) },
           );
-        return {
-          ...show,
-          status: episodes.length ? 'ready' : 'empty',
-          episodes,
-        };
-      } catch {
-        return {
-          ...show,
-          status: 'error',
-          episodes: [],
-          error: '暂时无法获取，稍后刷新重试',
-        };
-      }
-    }),
+          if (!response.ok) throw new Error(`目录返回 ${response.status}`);
+          const payload: { results?: Record<string, unknown>[] } =
+            await response.json();
+          if (!Array.isArray(payload.results))
+            throw new Error('目录数据格式异常');
+          const resolvedTitle =
+            typeof payload.results[0]?.collectionName === 'string'
+              ? payload.results[0].collectionName
+              : show.title;
+          const seen = new Set<string>();
+          const episodes: Episode[] = payload.results
+            .filter(
+              (entry: Record<string, unknown>) =>
+                entry.wrapperType === 'podcastEpisode',
+            )
+            .filter(
+              (entry: Record<string, unknown>) =>
+                todayFor(entry.releaseDate) === date,
+            )
+            .map((entry: Record<string, unknown>) => {
+              if (
+                typeof entry.episodeUrl !== 'string' ||
+                !entry.episodeUrl.startsWith('https://') ||
+                typeof entry.trackName !== 'string' ||
+                typeof entry.trackId !== 'number' ||
+                typeof entry.trackTimeMillis !== 'number' ||
+                entry.trackTimeMillis <= 0
+              )
+                throw new Error('单集信息不完整');
+              return {
+                id: String(entry.trackId),
+                title: entry.trackName,
+                showId: show.id,
+                showTitle: resolvedTitle,
+                publishedAt: String(entry.releaseDate),
+                duration: Math.round(entry.trackTimeMillis / 1000),
+                audio: entry.episodeUrl,
+                url:
+                  typeof entry.trackViewUrl === 'string'
+                    ? entry.trackViewUrl
+                    : `https://podcasts.apple.com/cn/podcast/id${show.appleId}`,
+              };
+            })
+            .filter((episode: Episode) => {
+              if (seen.has(episode.id)) return false;
+              seen.add(episode.id);
+              return true;
+            })
+            .sort(
+              (a: Episode, b: Episode) =>
+                Date.parse(a.publishedAt) - Date.parse(b.publishedAt),
+            );
+          return {
+            ...show,
+            title: resolvedTitle,
+            status: episodes.length ? 'ready' : 'empty',
+            episodes,
+          };
+        } catch {
+          return {
+            ...show,
+            status: 'error',
+            episodes: [],
+            error: '暂时无法获取，稍后刷新重试',
+          };
+        }
+      }),
   );
   return { date, shows, episodes: shows.flatMap((show) => show.episodes) };
 }
@@ -155,6 +171,50 @@ export default function Home() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const [storageWarning, setStorageWarning] = useState(false);
+  const [configuredShows, setConfiguredShows] = useState<ConfiguredShow[]>([]);
+  const [showInput, setShowInput] = useState('');
+  const [showMessage, setShowMessage] = useState('');
+
+  function saveShows(next: ConfiguredShow[]) {
+    setConfiguredShows(next);
+    localStorage.setItem(SHOWS_KEY, JSON.stringify(next));
+  }
+
+  function addShow() {
+    const match =
+      showInput.match(/(?:id=|\/id)(\d{6,})/) || showInput.match(/^(\d{6,})$/);
+    if (!match) {
+      setShowMessage('请输入 Apple Podcast 链接，或粘贴节目 ID。');
+      return;
+    }
+    const appleId = match[1];
+    if (configuredShows.some((show) => show.appleId === appleId)) {
+      setShowMessage('这个节目已经在列表里。');
+      return;
+    }
+    const next = [
+      ...configuredShows,
+      {
+        id: `custom-${appleId}`,
+        appleId,
+        title: `节目 ${appleId}`,
+        enabled: true,
+      },
+    ];
+    saveShows(next);
+    setShowInput('');
+    setShowMessage('已添加，刷新后会自动获取节目名称。');
+    void refresh();
+  }
+
+  function moveShow(index: number, delta: number) {
+    const target = index + delta;
+    if (target < 0 || target >= configuredShows.length) return;
+    const next = [...configuredShows];
+    [next[index], next[target]] = [next[target], next[index]];
+    saveShows(next);
+    void refresh();
+  }
 
   function save() {
     const d = dataRef.current,
@@ -222,7 +282,21 @@ export default function Home() {
     setLoading(true);
     setError('');
     try {
-      const d = await fetchTodayFromApple();
+      let configured = configuredShows;
+      if (!configured.length) {
+        try {
+          configured =
+            JSON.parse(localStorage.getItem(SHOWS_KEY) || 'null') ||
+            DEFAULT_SHOWS.map((show) => ({ ...show, enabled: true }));
+        } catch {
+          configured = DEFAULT_SHOWS.map((show) => ({
+            ...show,
+            enabled: true,
+          }));
+        }
+        setConfiguredShows(configured);
+      }
+      const d = await fetchTodayFromApple(configured);
       if (d.date !== today() || !Array.isArray(d.episodes)) throw Error();
       audio.current?.pause();
       dataRef.current = d;
@@ -583,6 +657,58 @@ export default function Home() {
           当前浏览器无法保存进度，关闭页面后可能需要重新播放。
         </div>
       )}
+      <details className="show-settings">
+        <summary>节目频道设置</summary>
+        <p className="muted">
+          只保存在这台 iPhone。粘贴 Apple Podcast 链接或节目 ID。
+        </p>
+        <div className="show-add">
+          <input
+            aria-label="Apple Podcast 链接或节目 ID"
+            value={showInput}
+            onChange={(event) => setShowInput(event.target.value)}
+            placeholder="https://podcasts.apple.com/.../id123456"
+          />
+          <button className="text-button" onClick={addShow}>
+            添加
+          </button>
+        </div>
+        {configuredShows.map((show, i) => (
+          <div className="show-config" key={show.appleId}>
+            <span>{show.title}</span>
+            <small>{show.appleId}</small>
+            <button
+              className="text-button"
+              onClick={() =>
+                saveShows(
+                  configuredShows.map((item) =>
+                    item.appleId === show.appleId
+                      ? { ...item, enabled: !item.enabled }
+                      : item,
+                  ),
+                )
+              }
+            >
+              {show.enabled ? '启用' : '停用'}
+            </button>
+            <button
+              className="text-button"
+              aria-label="上移"
+              onClick={() => moveShow(i, -1)}
+            >
+              ↑
+            </button>
+            <button
+              className="text-button"
+              aria-label="下移"
+              onClick={() => moveShow(i, 1)}
+            >
+              ↓
+            </button>
+          </div>
+        ))}
+        {showMessage && <p className="empty">{showMessage}</p>}
+      </details>
       <div className="section-title">
         <h2>今天听这些</h2>
         <button
