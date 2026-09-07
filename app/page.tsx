@@ -175,6 +175,7 @@ export default function Home() {
   const [configuredShows, setConfiguredShows] = useState<ConfiguredShow[]>([]);
   const [showInput, setShowInput] = useState('');
   const [showMessage, setShowMessage] = useState('');
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   function saveShows(next: ConfiguredShow[]) {
     setConfiguredShows(next);
@@ -208,12 +209,16 @@ export default function Home() {
     void refresh();
   }
 
-  function moveShow(index: number, delta: number) {
-    const target = index + delta;
-    if (target < 0 || target >= configuredShows.length) return;
+  function finishDrag(target: number) {
+    if (dragIndex === null || target === dragIndex) {
+      setDragIndex(null);
+      return;
+    }
     const next = [...configuredShows];
-    [next[index], next[target]] = [next[target], next[index]];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(target, 0, moved);
     saveShows(next);
+    setDragIndex(null);
     void refresh();
   }
 
@@ -687,7 +692,28 @@ export default function Home() {
           </button>
         </div>
         {configuredShows.map((show, i) => (
-          <div className="show-config" key={show.appleId}>
+          <div
+            className={`show-config ${dragIndex === i ? 'dragging' : ''}`}
+            data-show-index={i}
+            key={show.appleId}
+            onPointerDown={() => setDragIndex(i)}
+            onPointerUp={(event) => {
+              const element = document.elementFromPoint(
+                event.clientX,
+                event.clientY,
+              );
+              const target = Number(
+                (element as HTMLElement | null)
+                  ?.closest('[data-show-index]')
+                  ?.getAttribute('data-show-index'),
+              );
+              if (Number.isInteger(target)) finishDrag(target);
+              else setDragIndex(null);
+            }}
+          >
+            <span className="drag-handle" aria-hidden="true">
+              ☷
+            </span>
             <span>{show.title}</span>
             <small>{show.appleId}</small>
             <button
@@ -703,20 +729,6 @@ export default function Home() {
               }
             >
               {show.enabled ? '启用' : '停用'}
-            </button>
-            <button
-              className="text-button"
-              aria-label="上移"
-              onClick={() => moveShow(i, -1)}
-            >
-              ↑
-            </button>
-            <button
-              className="text-button"
-              aria-label="下移"
-              onClick={() => moveShow(i, 1)}
-            >
-              ↓
             </button>
           </div>
         ))}
@@ -778,25 +790,6 @@ export default function Home() {
         </article>
       ))}
       {!data && !loading && <p className="empty">点击“刷新”重新获取节目。</p>}
-      <p className="tip">
-        <Headphones size={18} style={{ flexShrink: 0, marginTop: 3 }} />
-        上车前点一次播放，再锁屏收听。首次使用请测试锁屏后能否自动进入下一期。
-      </p>
-      <details>
-        <summary>iPhone 车载试听指南</summary>
-        <ol>
-          <li>用 Safari 打开，在停车时连接汽车蓝牙，点击播放。</li>
-          <li>锁屏后确认仍有声音，测试车载暂停与继续按钮。</li>
-          <li>将第一期拖到结尾前约 20 秒，再锁屏，确认自动进入第二期。</li>
-          <li>测试导航语音插播后能否继续；若暂停，点车载继续或网页播放。</li>
-          <li>
-            可通过 Safari 的分享菜单“添加到主屏幕”；主屏幕打开后也需单独测试。
-          </li>
-        </ol>
-        <p>
-          手机系统可能限制后台切换；如跨集暂停，请解锁后点击播放。只有本机保存收听进度。
-        </p>
-      </details>
       <footer>只听今天 · 固定顺序 · 不积压</footer>
       {/* Public podcast sources provide audio only; no caption track is available. */}
       {/* oxlint-disable-next-line jsx-a11y/media-has-caption */}

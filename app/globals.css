@@ -279,8 +279,18 @@ details {
   display: flex;
   align-items: center;
   gap: 5px;
+  touch-action: none;
   border-top: 1px solid #d9e2e5;
   padding: 8px 0;
+}
+.show-config.dragging {
+  opacity: 0.55;
+  background: #eef5f6;
+}
+.drag-handle {
+  color: #71838b;
+  font-size: 20px;
+  line-height: 1;
 }
 .show-config span {
   flex: 1;
