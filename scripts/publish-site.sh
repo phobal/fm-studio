@@ -11,10 +11,10 @@ if [[ -z "$token" || -z "$remote_url" ]]; then
   exit 1
 fi
 
+npx oxfmt app/page.tsx app/globals.css
 npm run lint
 npx tsc --noEmit
 npm run build
-npx oxfmt app/page.tsx app/globals.css
 
 archive="/tmp/${project_id}-$(date +%s).tar.gz"
 git add app package.json scripts
