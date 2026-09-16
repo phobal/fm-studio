@@ -20,7 +20,7 @@ const feed = (episodes) => ({
   results: [{ wrapperType: 'track' }, ...episodes],
 });
 
-test('Beijing midnight separates old and new episodes', () => {
+test('rolling 24-hour window includes episodes across midnight', () => {
   assert.equal(chinaDate('2026-09-06T16:00:00Z'), day);
   assert.equal(chinaDate('2026-09-06T15:59:59Z'), '2026-09-06');
   assert.equal(chinaDate('bad'), '');
@@ -34,7 +34,7 @@ test('Beijing midnight separates old and new episodes', () => {
   );
   assert.deepEqual(
     result.episodes.map((item) => item.id),
-    ['today'],
+    ['yesterday', 'today'],
   );
 });
 
