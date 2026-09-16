@@ -75,7 +75,7 @@ async function fetchTodayFromApple(configured: ConfiguredShow[]): Promise<Day> {
       .map(async (show) => {
         try {
           const response = await fetch(
-            `https://itunes.apple.com/lookup?id=${show.appleId}&entity=podcastEpisode&limit=200&country=cn`,
+            `https://itunes.apple.com/lookup?id=${show.appleId}&entity=podcastEpisode&limit=200&country=us`,
             { signal: AbortSignal.timeout(18000) },
           );
           if (!response.ok) throw new Error(`目录返回 ${response.status}`);
