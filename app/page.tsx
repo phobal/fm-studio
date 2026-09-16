@@ -48,10 +48,15 @@ const time = (s: number) =>
   `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const DEFAULT_SHOWS = [
   { id: '67891a429407dcd1bfbfcfcb', appleId: '1794422481', title: '资讯早7点' },
+  // {
+  //   id: '60de7c003dd577b40d5a40f3',
+  //   appleId: '1573189055',
+  //   title: '声动早咖啡',
+  // },
   {
-    id: '60de7c003dd577b40d5a40f3',
-    appleId: '1573189055',
-    title: '声动早咖啡',
+    id: '5f7e1c3b3dd577b40d5a40f4',
+    appleId: '6785350895',
+    title: '听见新鲜事',
   },
 ];
 
@@ -70,7 +75,7 @@ async function fetchTodayFromApple(configured: ConfiguredShow[]): Promise<Day> {
       .map(async (show) => {
         try {
           const response = await fetch(
-            `https://itunes.apple.com/lookup?id=${show.appleId}&entity=podcastEpisode&limit=10&country=cn`,
+            `https://itunes.apple.com/lookup?id=${show.appleId}&entity=podcastEpisode&limit=200&country=cn`,
             { signal: AbortSignal.timeout(18000) },
           );
           if (!response.ok) throw new Error(`目录返回 ${response.status}`);
