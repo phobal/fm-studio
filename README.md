@@ -6,6 +6,22 @@
 
 Node 22.13+。执行 `npm ci`、`npm run dev`。运行 `node --test tests/*.test.mjs` 验证筛选和源站异常，`npx tsc --noEmit` 检查类型，`npm run build` 生成发布文件。
 
+## Docker Compose
+
+安装 Docker Desktop 或 Docker Engine 后，一条命令启动生产模式：
+
+```bash
+docker compose up --build -d
+```
+
+然后访问 `http://localhost:3000`。停止服务：
+
+```bash
+docker compose down
+```
+
+如需使用其他主机端口，可执行 `PORT=8080 docker compose up --build -d`。
+
 ## 行为
 
 - 打开或手动刷新获取当天节目，目录失败与未更新分别显示。

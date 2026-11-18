@@ -1,0 +1,8 @@
+services:
+  morning-radio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-3000}:3000"
+    restart: unless-stopped
