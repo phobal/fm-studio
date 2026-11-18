@@ -15,6 +15,8 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
+默认使用 npmmirror 安装依赖并启用 Docker BuildKit 缓存，适合国内服务器。海外服务器可将 `.env` 中的 `NPM_REGISTRY` 改为 `https://registry.npmjs.org`。
+
 然后访问 `http://localhost:3000`。停止服务：
 
 ```bash
