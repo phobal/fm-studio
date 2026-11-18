@@ -19,4 +19,4 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/.openai ./.openai
 
 EXPOSE 3000
-CMD ["npm", "run", "start", "--", "--ip", "0.0.0.0", "--port", "3000"]
+CMD ["sh", "-c", "npm run start -- --ip 0.0.0.0 --port ${PORT}"]
