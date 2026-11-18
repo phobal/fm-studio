@@ -11,6 +11,7 @@ Node 22.13+。执行 `npm ci`、`npm run dev`。运行 `node --test tests/*.test
 安装 Docker Desktop 或 Docker Engine 后，一条命令启动生产模式：
 
 ```bash
+cp .env.example .env
 docker compose up --build -d
 ```
 
